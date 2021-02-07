@@ -1,7 +1,7 @@
 version: "3"
 services:
-  plz-geosearch:
-    container_name: plz-geosearch
+  zip_geosearch:
+    container_name: zip_geosearch
     restart: unless-stopped
     build: .
     ports:
