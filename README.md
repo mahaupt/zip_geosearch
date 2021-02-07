@@ -11,6 +11,9 @@ Latitude and Longitude need to be in decimal format.
 
 ## Functionality
 The app precalculates distances to each zipcodes in the dataset and saves all to a mongodb database.  
+You go to http://localhost:8080/ZIPCODE/RANGE for example:  
+http://localhost:8080/28201/20  
+to get results.
 
 ## Environment Variables
 You can pass settings as environment variables:  
