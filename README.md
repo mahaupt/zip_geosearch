@@ -1,4 +1,4 @@
-# PLZ GeoSearch
+# ZIP GeoSearch
 A zipcode search engine in nodejs.  
 
 ## Installation
