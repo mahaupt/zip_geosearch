@@ -1,5 +1,8 @@
 # ZIP GeoSearch
-A zipcode search engine in nodejs.  
+A zipcode-range search engine in nodejs.  
+You put in a zipcode and a range and it gives you  
+some infomation about the zipcode and all neaby zipcodes within range.  
+Built do be fast.
 
 ## Installation
 A input csv file that contains your data source.  
