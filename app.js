@@ -21,6 +21,8 @@ function calcDist(o1, o2)
   let d_lat = o2.lat - o1.lat;
   let d_lon = o2.lon - o1.lon;
   d_lon *= Math.cos(Math.PI * mid_lat / 180);
+  // 1 deg ^= 60 NM // 1 NM = 1.852 KM
+  // 60 * 1.852 = 111.12
   let dist = Math.sqrt(d_lat*d_lat + d_lon*d_lon) * 111.12;
   return Math.round(dist);
 }
@@ -32,6 +34,7 @@ function calcDist(o1, o2)
  */
 async function calcAndUpdateDistances(coll, plzData)
 {
+  //remove unessecary columns
   for (let i=0; i < plzData.length; i++)
   {
     delete plzData[i].id;
@@ -41,6 +44,7 @@ async function calcAndUpdateDistances(coll, plzData)
     plzData[i].nearest = [];
   }
 
+  //calculate distances - 2 iterations
   for (let i=0; i < plzData.length; i++)
   {
     for (let j=0; j < plzData.length; j++)
@@ -61,6 +65,7 @@ async function calcAndUpdateDistances(coll, plzData)
       return e1.dist - e2.dist;
     });
 
+    //debug
     if (i % 100 == 0) {
       let percent = i / plzData.length * 100;
       console.log(i + ": " + Math.round(percent) + "%");
@@ -92,6 +97,7 @@ async function init() {
     } else if (FORCE_RECREATE) {
       console.log("Recreating the datasets");
       await setupDatabase(coll);
+      await coll.createIndex({zip_code: 1});
     } else {
       console.log("Found " + count + " entities");
     }
@@ -144,7 +150,7 @@ async function run() {
       let db = client.db(DB_DB);
       let coll = db.collection("zip");
       let query = { zip_code: req.params.plz };
-      var plz = await coll.findOne(query);
+      var plz = await coll.findOne(query, { projection: {_id: 0}});
       if (plz) {
         plz.nearest = plz.nearest.filter(e => e.dist <= req.params.rng);
       }
