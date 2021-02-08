@@ -112,7 +112,7 @@ async function setupDatabase(coll) {
   await coll.drop((error, result) => {});
 
   await csvtojson()
-  .fromFile("data_setup/data.csv")
+  .fromFile(INPUT_DATA)
   .then(async csvData => {
     console.log("Parsed " + csvData.length + " entities")
     await calcAndUpdateDistances(coll, csvData);
