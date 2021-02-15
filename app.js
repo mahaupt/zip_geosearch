@@ -53,7 +53,7 @@ async function calcAndUpdateDistances(coll, plzData)
       let dist = calcDist(plzData[i], plzData[j]);
       if (dist <= MAX_DIST_KM) {
         let nrdata = {
-          plz: plzData[j].zip_code,
+          zip_code: plzData[j].zip_code,
           dist: dist
         };
         plzData[i].nearest.push(nrdata);
@@ -64,6 +64,9 @@ async function calcAndUpdateDistances(coll, plzData)
     plzData[i].nearest.sort((e1, e2) => {
       return e1.dist - e2.dist;
     });
+
+    //filter distinct
+    plzData[i].nearest = plzData[i].nearest.filter((v,i,a)=>a.findIndex(t=>(t.zip_code === v.zip_code))===i);
 
     //debug
     if (i % 100 == 0) {
@@ -91,11 +94,12 @@ async function init() {
     let coll = db.collection("zip");
     let count = await coll.countDocuments();
 
-    if (count <= 0) {
-      console.log("No Datasets");
-      await setupDatabase(coll);
-    } else if (FORCE_RECREATE) {
-      console.log("Recreating the datasets");
+    if (count <= 0 || FORCE_RECREATE) {
+      if (FORCE_RECREATE) {
+        console.log("Recreating the datasets");
+      } else {
+        console.log("No Datasets");
+      }
       await setupDatabase(coll);
       await coll.createIndex({zip_code: 1});
     } else {
@@ -137,8 +141,8 @@ async function run() {
 
   var app = express();
 
-  app.get('/:plz?/:rng?', async (req, res) => {
-    if (!req.params.plz || !req.params.rng) {
+  app.get('/:zip?/:rng?', async (req, res) => {
+    if (!req.params.zip || !req.params.rng) {
       res.status(400).send('Bad Request');
       return;
     }
@@ -149,13 +153,13 @@ async function run() {
       await client.connect();
       let db = client.db(DB_DB);
       let coll = db.collection("zip");
-      let query = { zip_code: req.params.plz };
-      var plz = await coll.findOne(query, { projection: {_id: 0}});
-      if (plz) {
-        plz.nearest = plz.nearest.filter(e => e.dist <= req.params.rng);
+      let query = { zip_code: req.params.zip };
+      var zip = await coll.findOne(query, { projection: {_id: 0}});
+      if (zip) {
+        zip.nearest = zip.nearest.filter(e => e.dist <= req.params.rng);
       }
       //console.log(plz);
-      res.json(plz);
+      res.json(zip);
     } finally {
       await client.close();
     }
