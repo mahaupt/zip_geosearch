@@ -2,7 +2,7 @@ version: "3"
 services:
   zip_geosearch:
     container_name: zip_geosearch
-    image: docker.pkg.github.com/cbacon93/zip_geosearch/zip_geosearch
+    image: docker.pkg.github.com/cbacon93/zip_geosearch/zip_geosearch:1.1.0
     #build: .
     restart: unless-stopped
     ports:

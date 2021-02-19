@@ -1,6 +1,6 @@
 {
   "name": "zip_geosearch",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Post Code Search Engine",
   "author": "Marcel Haupt",
   "main": "app.js",

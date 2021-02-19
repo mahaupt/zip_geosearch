@@ -15,6 +15,10 @@ You go to http://localhost:8080/ZIPCODE/RANGE for example:
 http://localhost:8080/28201/20  
 to get results.
 
+## Search engine
+To search for a specific zip code by city or town name, you can use:  
+http://localhost:8080/Berlin
+
 ## Environment Variables
 You can pass settings as environment variables:  
 - DB_URL "mongodb://localhost:27017/"

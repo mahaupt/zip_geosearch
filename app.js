@@ -101,7 +101,7 @@ async function init() {
         console.log("No Datasets");
       }
       await setupDatabase(coll);
-      await coll.createIndex({zip_code: 1});
+      await coll.createIndex({zip_code: 1, name: "text"});
     } else {
       console.log("Found " + count + " entities");
     }
@@ -141,13 +141,13 @@ async function run() {
 
   var app = express();
 
-  app.get('/:zip?/:rng?', async (req, res) => {
+  app.get('/:zip/:rng', async (req, res) => {
     if (!req.params.zip || !req.params.rng) {
       res.status(400).send('Bad Request');
       return;
     }
 
-    const client = MongoClient(DB_URL, { useUnifiedTopology: true}, { useNewUrlParser: true }, { connectTimeoutMS: 30000 }, { keepAlive: 1});
+    const client = MongoClient(DB_URL, { useUnifiedTopology: true}, { useNewUrlParser: true }, { connectTimeoutMS: 3000 }, { keepAlive: 1});
 
     try {
       await client.connect();
@@ -163,6 +163,34 @@ async function run() {
     } finally {
       await client.close();
     }
+  });
+
+  app.get('/:search?', async (req, res) => {
+    if (!req.params.search) {
+      res.status(400).send('Bad Request');
+      return;
+    }
+
+    const client = MongoClient(DB_URL, { useUnifiedTopology: true}, { useNewUrlParser: true }, { connectTimeoutMS: 3000 }, { keepAlive: 1});
+    try {
+      await client.connect();
+      let db = client.db(DB_DB);
+      let coll = db.collection("zip");
+      let query = { $text: { $search: req.params.search } };
+      
+      var zip = await coll.find(
+        query,
+        {score: { $meta: "textScore" }, projection: {_id: 0, nearest: 0}})
+        .sort( { score: { $meta: "textScore" } } )
+        .limit(5)
+        .toArray();
+
+      console.log(zip);
+      res.json(zip);
+    } finally {
+      await client.close();
+    }
+
   });
 
   app.listen(8080, () => {
