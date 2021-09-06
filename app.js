@@ -10,75 +10,29 @@ const FORCE_RECREATE = process.env.FORCE_RECREATE || false
 
 
 /**
- * Calculates lat-lon distance between two objects
- * @param  {Object} o1 First Object (with lat lon attribute)
- * @param  {Object} o2 Second Object (with lat lon attribute)
- * @return {Float}    Distance between the two objects in km
- */
-function calcDist(o1, o2)
-{
-  let mid_lat = (o1.lat + o2.lat) / 2;
-  let d_lat = o2.lat - o1.lat;
-  let d_lon = o2.lon - o1.lon;
-  d_lon *= Math.cos(Math.PI * mid_lat / 180);
-  // 1 deg ^= 60 NM // 1 NM = 1.852 KM
-  // 60 * 1.852 = 111.12
-  let dist = Math.sqrt(d_lat*d_lat + d_lon*d_lon) * 111.12;
-  return Math.round(dist);
-}
-
-/**
  * Calculates distances from plzData and puts element by element into the Database
  * @param  {mongodb.Collation} coll    Collation to insert the objects in
  * @param  {Array} plzData PLZ Object Data
  */
-async function calcAndUpdateDistances(coll, plzData)
+async function insertDocuments(coll, plzData)
 {
   //remove unessecary columns
   for (let i=0; i < plzData.length; i++)
   {
     delete plzData[i].id;
     delete plzData[i].loc_id
-    plzData[i].lat = Number.parseFloat(plzData[i].lat);
-    plzData[i].lon = Number.parseFloat(plzData[i].lon);
-    plzData[i].nearest = [];
+    const location = {
+      type: "Point",
+      coordinates: [Number.parseFloat(plzData[i].lat), Number.parseFloat(plzData[i].lon)]
+    }
+    delete plzData[i].lat;
+    delete plzData[i].lon;
+    plzData[i].location = location;
   }
 
-  //calculate distances - 2 iterations
-  for (let i=0; i < plzData.length; i++)
-  {
-    for (let j=0; j < plzData.length; j++)
-    {
-      if (i == j) continue;
-      let dist = calcDist(plzData[i], plzData[j]);
-      if (dist <= MAX_DIST_KM) {
-        let nrdata = {
-          zip_code: plzData[j].zip_code,
-          dist: dist
-        };
-        plzData[i].nearest.push(nrdata);
-      }
-    }
-
-    //sort nearest
-    plzData[i].nearest.sort((e1, e2) => {
-      return e1.dist - e2.dist;
-    });
-
-    //filter distinct
-    plzData[i].nearest = plzData[i].nearest.filter((v,i,a)=>a.findIndex(t=>(t.zip_code === v.zip_code))===i);
-
-    //debug
-    if (i % 100 == 0) {
-      let percent = i / plzData.length * 100;
-      console.log(i + ": " + Math.round(percent) + "%");
-      //console.log(plzData[i]);
-    }
-
-    //db insert and memory cleanup
-    await coll.insertOne(plzData[i]);
-    plzData[i].nearest = [];
-  }
+  //db insert and memory cleanup
+  await coll.insertMany(plzData);
+    
 }
 
 /**
@@ -101,7 +55,10 @@ async function init() {
         console.log("No Datasets");
       }
       await setupDatabase(coll);
-      await coll.createIndex({zip_code: 1, name: "text"});
+      console.log("Datasets inserted, creating indices");
+      await coll.createIndex({zip_code: "text", name: "text"});
+      await coll.createIndex({location: "2dsphere"});
+      console.log("Done");
     } else {
       console.log("Found " + count + " entities");
     }
@@ -125,7 +82,7 @@ async function setupDatabase(coll) {
   .fromFile(INPUT_DATA)
   .then(async csvData => {
     console.log("Parsed " + csvData.length + " entities")
-    await calcAndUpdateDistances(coll, csvData);
+    await insertDocuments(coll, csvData);
 
   });
 
@@ -142,7 +99,7 @@ async function run() {
   var app = express();
 
   app.get('/:zip/:rng', async (req, res) => {
-    if (!req.params.zip || !req.params.rng) {
+    if (!req.params.zip || !req.params.rng || (req.params.rng < 0 || req.params.rng > MAX_DIST_KM)) {
       res.status(400).send('Bad Request');
       return;
     }
@@ -153,13 +110,30 @@ async function run() {
       await client.connect();
       let db = client.db(DB_DB);
       let coll = db.collection("zip");
-      let query = { zip_code: req.params.zip };
-      var zip = await coll.findOne(query, { projection: {_id: 0}});
-      if (zip) {
-        zip.nearest = zip.nearest.filter(e => e.dist <= req.params.rng);
+      const query = { zip_code: req.params.zip };
+      const point = await coll.findOne(query);
+      if (!point) {
+        return res.json([]);
       }
-      //console.log(plz);
-      res.json(zip);
+      const nearby = await coll.find({ location: { $nearSphere: { $geometry: point.location, $maxDistance: req.params.rng * 1000 } } }).toArray();
+      if (!nearby) {
+        return res.json([]);
+      }
+
+      var result = {
+        country_code: point.country_code,
+        zip_code: point.zip_code,
+        name: point.name,
+        nearest: []
+      };
+      for (let i=0; i < nearby.length; i++) {
+        result.nearest.push({
+          zip_code: nearby[i].zip_code
+        });
+      }
+
+      //console.log(result);
+      res.json(result);
     } finally {
       await client.close();
     }
