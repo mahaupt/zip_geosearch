@@ -5,20 +5,6 @@ on:
     branches: [ master ]
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-    
-      - name: Checkout
-        uses: actions/checkout@v2
-        
-      - name: Lint Code Base
-        uses: docker://ghcr.io/github/super-linter:slim-v4
-        env:
-          VALIDATE_ALL_CODEBASE: true
-          DEFAULT_BRANCH: master
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   build:
     runs-on: ubuntu-latest
     
@@ -40,10 +26,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
-      #- name: Set up QEMU
-      #  uses: docker/setup-qemu-action@master
-      #  with:
-      #    platforms: all
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
         
       - name: Docker setup buildx
         id: buildx
@@ -69,7 +55,7 @@ jobs:
         with:
           builder: ${{ steps.buildx.outputs.name }}
           push: true
-          platforms: linux/amd64
+          platforms: linux/amd64, linux/arm64
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           tags: |
